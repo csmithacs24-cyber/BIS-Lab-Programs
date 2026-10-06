@@ -1,0 +1,115 @@
+import random
+
+# 1. SETUP PARAMETERS
+NUM_PHASES = 4
+POPULATION_SIZE = 10
+MAX_ITERATIONS = 20
+
+# Safe boundaries for green light phases (in seconds)
+MIN_GREEN = [10, 5, 10, 5]
+MAX_GREEN = [60, 30, 60, 30]
+
+# Traffic demand levels (higher number = more traffic arriving)
+TRAFFIC_DEMAND = [40, 15, 35, 12]
+
+
+# 2. SIMULATED TRAFFIC DELAY FUNCTION
+def calculate_traffic_delay(green_times):
+    """Calculates how poorly a timing configuration performs.
+
+    More traffic demand needs more green time to lower the delay.
+    """
+    total_delay = 0
+    total_cycle = sum(green_times) + 16  # Includes 4s yellow per phase
+
+    for i in range(NUM_PHASES):
+        green = green_times[i]
+        demand = TRAFFIC_DEMAND[i]
+
+        # Simple logic: If demand is high but green time is low, delay spikes
+        green_share = green / total_cycle
+        phase_delay = (demand * 10) / (green_share + 0.01)
+        total_delay += phase_delay
+
+    return round(total_delay, 2)
+
+
+# 3. INITIALIZE THE SWARM
+positions = []
+velocities = []
+pbest_positions = []
+pbest_scores = []
+
+for _ in range(POPULATION_SIZE):
+    # Create random initial timings within safe boundaries
+    pos = [
+        random.uniform(MIN_GREEN[i], MAX_GREEN[i]) for i in range(NUM_PHASES)
+    ]
+    positions.append(pos)
+    velocities.append([0.0] * NUM_PHASES)
+
+    # Track individual memories
+    pbest_positions.append(list(pos))
+    pbest_scores.append(calculate_traffic_delay(pos))
+
+# Track the global network best configuration
+gbest_index = pbest_scores.index(min(pbest_scores))
+gbest_position = list(pbest_positions[gbest_index])
+gbest_score = pbest_scores[gbest_index]
+
+print(f"--- STARTING OPTIMIZATION ---")
+print(f"Initial Baseline Delay Score: {gbest_score}\n")
+
+# 4. SWARM OPTIMIZATION LOOP
+for iteration in range(MAX_ITERATIONS):
+    for idx in range(POPULATION_SIZE):
+        for phase in range(NUM_PHASES):
+            r1, r2 = random.random(), random.random()
+
+            # Adjust physical speeds based on individual and global memories
+            inertia = 0.7 * velocities[idx][phase]
+            cognitive = (
+                1.5 * r1 * (pbest_positions[idx][phase] - positions[idx][phase])
+            )
+            social = 2.0 * r2 * (gbest_position[phase] - positions[idx][phase])
+
+            velocities[idx][phase] = inertia + cognitive + social
+
+            # Apply speed and update traffic light durations
+            positions[idx][phase] += velocities[idx][phase]
+
+            # Clip to stay inside legal limits
+            if positions[idx][phase] < MIN_GREEN[phase]:
+                positions[idx][phase] = MIN_GREEN[phase]
+            elif positions[idx][phase] > MAX_GREEN[phase]:
+                positions[idx][phase] = MAX_GREEN[phase]
+
+        # Evaluate performance of the new timeline configuration
+        current_score = calculate_traffic_delay(positions[idx])
+
+        # Update Personal Best record
+        if current_score < pbest_scores[idx]:
+            pbest_scores[idx] = current_score
+            pbest_positions[idx] = list(positions[idx])
+
+            # Update Global Best network record
+            if current_score < gbest_score:
+                gbest_score = current_score
+                gbest_position = list(positions[idx])
+
+    # Print clean progress metrics every 5 operational updates
+    if (iteration + 1) % 5 == 0:
+        print(f"Iteration {iteration + 1:02d} | System Delay: {gbest_score}")
+
+# 5. FINAL RESULTS SUMMARY DISPLAY
+
+print("       OPTIMAL TRAFFIC SIGNAL TIMINGS    ")
+
+print(f"Phase 1 (North-South Straight) : {gbest_position[0]:.1f} seconds")
+print(f"Phase 2 (North-South Turning)  : {gbest_position[1]:.1f} seconds")
+print(f"Phase 3 (East-West Straight)   : {gbest_position[2]:.1f} seconds")
+print(f"Phase 4 (East-West Turning)    : {gbest_position[3]:.1f} seconds")
+
+print(f"Optimized System Delay Rating  : {gbest_score}")
+print(f"Calculated Total Cycle Length  : {sum(gbest_position) + 16:.1f} seconds")
+
