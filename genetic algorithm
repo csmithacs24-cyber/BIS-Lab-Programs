@@ -1,0 +1,92 @@
+import random
+
+# Define Jobs and their Processing Times on a single or parallel setup
+# Format: {Job_ID: processing_time}
+JOBS = {
+    'Job_1': 4,
+    'Job_2': 2,
+    'Job_3': 8,
+    'Job_4': 3,
+    'Job_5': 5
+}
+
+# Genetic Algorithm Parameters
+POPULATION_SIZE = 10
+GENERATIONS = 20
+MUTATION_RATE = 0.2
+
+def calculate_makespan(schedule):
+    """Calculates total time needed to finish all jobs in order."""
+    total_time = 0
+    for job in schedule:
+        total_time += JOBS[job]
+    return total_time
+
+def create_individual():
+    """Generates a random sequence (permutation) of jobs."""
+    individual = list(JOBS.keys())
+    random.shuffle(individual)
+    return individual
+
+def create_population():
+    """Creates a starting population of random schedules."""
+    return [create_individual() for _ in range(POPULATION_SIZE)]
+
+def fitness(individual):
+    """Fitness is inverse of makespan (shorter time = higher fitness)."""
+    return 1 / calculate_makespan(individual)
+
+def selection(population):
+    """Selects the best individual using tournament selection."""
+    return max(random.sample(population, 3), key=fitness)
+
+def crossover(parent1, parent2):
+    """Performs single-point crossover to combine two schedules."""
+    size = len(parent1)
+    point = random.randint(1, size - 1)
+    
+    # Take a slice from parent1, fill the rest from parent2 in order
+    child = parent1[:point]
+    for job in parent2:
+        if job not in child:
+        # Check if length allows adding
+            child.append(job)
+    return child
+
+def mutate(individual):
+    """Swaps two random jobs in the schedule with a set probability."""
+    if random.random() < MUTATION_RATE:
+        idx1, idx2 = random.sample(range(len(individual)), 2)
+        individual[idx1], individual[idx2] = individual[idx2], individual[idx1]
+    return individual
+
+# Main Genetic Algorithm Loop
+def run_genetic_algorithm():
+    population = create_population()
+    best_overall = None
+    best_makespan = float('inf')
+
+    for generation in range(GENERATIONS):
+        # Evaluate population
+        for ind in population:
+            ms = calculate_makespan(ind)
+            if ms < best_makespan:
+                best_makespan = ms
+                best_overall = list(ind)
+
+        # Create next generation
+        new_population = []
+        for _ in range(POPULATION_SIZE):
+            p1 = selection(population)
+            p2 = selection(population)
+            child = crossover(p1, p2)
+            child = mutate(child)
+            new_population.append(child)
+
+        population = new_population
+
+    print(f"Best Schedule Found: {best_overall}")
+    print(f"Minimum Makespan (Total Time): {best_makespan}")
+
+if __name__ == '__main__':
+    run_genetic_algorithm()
