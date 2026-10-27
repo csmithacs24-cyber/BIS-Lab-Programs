@@ -1,0 +1,69 @@
+import random
+
+n = int(input("Enter number of cities: "))
+
+print("Enter the distance matrix row by row:")
+dist = []
+for i in range(n):
+    dist.append(list(map(int, input().split())))
+
+ants = 10
+iterations = 100
+alpha = 1
+beta = 2
+rho = 0.5
+Q = 100
+
+pheromone = [[1.0 if i != j else 0.0
+              for j in range(n)] for i in range(n)]
+
+best_route = None
+best_distance = float('inf')
+
+for _ in range(iterations):
+    routes = []
+
+    for _ in range(ants):
+        route = [random.randrange(n)]
+        unvisited = set(range(n)) - set(route)
+
+        while unvisited:
+            i = route[-1]
+            cities = list(unvisited)
+
+            weights = [
+                pheromone[i][j] ** alpha *
+                (1 / dist[i][j]) ** beta
+                for j in cities
+            ]
+
+            j = random.choices(cities, weights=weights, k=1)[0]
+            route.append(j)
+            unvisited.remove(j)
+
+        length = sum(dist[route[i]][route[(i + 1) % n]]
+                     for i in range(n))
+        routes.append((route, length))
+
+        if length < best_distance:
+            best_distance = length
+            best_route = route[:]
+
+    for i in range(n):
+        for j in range(n):
+            pheromone[i][j] *= (1 - rho)
+
+    for route, length in routes:
+        deposit = Q / length
+        for i in range(n):
+            a = route[i]
+            b = route[(i + 1) % n]
+            pheromone[a][b] += deposit
+            pheromone[b][a] += deposit
+
+tour = [chr(65 + i) for i in best_route]
+tour.append(tour[0])
+
+print("Best Tour:", " -> ".join(tour))
+print("Shortest Distance:", best_distance)
+
